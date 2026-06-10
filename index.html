@@ -804,6 +804,18 @@
         <div class="inst-chip" data-inst="marimba" onclick="selectInstrument(this,'marimba')">🪘 Marimba</div>
       </div>
 
+      <div class="field-label" style="margin-top:20px">Strum Pattern</div>
+      <div class="inst-grid" id="strum-grid">
+        <div class="inst-chip selected" data-strum="auto" onclick="selectStrum(this,'auto')">🎵 Auto</div>
+        <div class="inst-chip" data-strum="on1" onclick="selectStrum(this,'on1')">1 · · ·</div>
+        <div class="inst-chip" data-strum="on13" onclick="selectStrum(this,'on13')">1 · 3 ·</div>
+        <div class="inst-chip" data-strum="on1234" onclick="selectStrum(this,'on1234')">1 2 3 4</div>
+        <div class="inst-chip" data-strum="offbeat" onclick="selectStrum(this,'offbeat')">· 2 · 4</div>
+        <div class="inst-chip" data-strum="anticipated" onclick="selectStrum(this,'anticipated')">1 · 2+ ·</div>
+        <div class="inst-chip" data-strum="calypso" onclick="selectStrum(this,'calypso')">Calypso</div>
+        <div class="inst-chip" data-strum="held" onclick="selectStrum(this,'held')">Held</div>
+      </div>
+
       <div class="field-label" style="margin-top:20px">Playback</div>
       <label style="display:flex;align-items:center;gap:10px;padding:10px 0;font-size:14px;cursor:pointer;">
         <input type="checkbox" id="count-in" checked style="width:18px;height:18px;accent-color:var(--accent)">
@@ -879,6 +891,7 @@ let beatsPerBar = 4;
 let mutes = { click: false, drums: false, bass: false, chords: false };
 let volumes = { click: 0.7, drums: 0.8, bass: 0.75, chords: 0.65 };
 let chordInstrument = 'piano';
+let strumPattern = 'auto';
 let countInBeats = 0;
 let inCountIn = false;
 
@@ -891,63 +904,114 @@ let playChords = [];
 function defaultSongs() {
   return [
     {
-      id: uid(),
-      title: "Autumn Leaves",
-      key: "G",
-      tempo: 120,
-      style: "swing",
-      timeSig: "4/4",
+      id: uid(), title: "Autumn Leaves", key: "G", tempo: 120, style: "swing", timeSig: "4/4",
       bars: [
-        ["Cm7","","F7",""],
-        ["Bbmaj7","","Ebmaj7",""],
-        ["Am7b5","","D7",""],
-        ["Gm","","Gm",""],
-        ["Cm7","","F7",""],
-        ["Bbmaj7","","Ebmaj7",""],
-        ["Am7b5","","D7",""],
-        ["Gm","","",""],
+        ["Cm7","","F7",""],["Bbmaj7","","Ebmaj7",""],["Am7b5","","D7",""],["Gm","","Gm",""],
+        ["Cm7","","F7",""],["Bbmaj7","","Ebmaj7",""],["Am7b5","","D7",""],["Gm","","",""],
       ]
     },
     {
-      id: uid(),
-      title: "Basic Blues",
-      key: "Bb",
-      tempo: 100,
-      style: "swing",
-      timeSig: "4/4",
+      id: uid(), title: "Basic Blues (Bb)", key: "Bb", tempo: 100, style: "swing", timeSig: "4/4",
       bars: [
-        ["Bb7","","",""],
-        ["Bb7","","",""],
-        ["Bb7","","",""],
-        ["Bb7","","",""],
-        ["Eb7","","",""],
-        ["Eb7","","",""],
-        ["Bb7","","",""],
-        ["Bb7","","",""],
-        ["F7","","",""],
-        ["Eb7","","",""],
-        ["Bb7","","",""],
-        ["F7","","",""],
+        ["Bb7","","",""],["Bb7","","",""],["Bb7","","",""],["Bb7","","",""],
+        ["Eb7","","",""],["Eb7","","",""],["Bb7","","",""],["Bb7","","",""],
+        ["F7","","",""],["Eb7","","",""],["Bb7","","",""],["F7","","",""],
       ]
     },
     {
-      id: uid(),
-      title: "Minor Waltz",
-      key: "Am",
-      tempo: 138,
-      style: "waltz",
-      timeSig: "3/4",
+      id: uid(), title: "Minor Waltz", key: "Am", tempo: 138, style: "waltz", timeSig: "3/4",
       bars: [
-        ["Am","",""],
-        ["Dm","",""],
-        ["E7","",""],
-        ["Am","",""],
-        ["F","",""],
-        ["G7","",""],
-        ["C","",""],
-        ["E7","",""],
+        ["Am","",""],["Dm","",""],["E7","",""],["Am","",""],
+        ["F","",""],["G7","",""],["C","",""],["E7","",""],
       ]
-    }
+    },
+    {
+      id: uid(), title: "Fly Me to the Moon", key: "C", tempo: 126, style: "swing", timeSig: "4/4",
+      bars: [
+        ["Am7","","Dm7",""],["G7","","Cmaj7",""],["Fmaj7","","Bm7b5",""],["E7","","Am7",""],
+        ["Am7","","Dm7",""],["G7","","Cmaj7",""],["Fmaj7","","Em7",""],["A7","","Dm7",""],
+        ["G7","","Cmaj7",""],["Fmaj7","","Em7",""],["Dm7","","G7",""],["Cmaj7","","",""],
+      ]
+    },
+    {
+      id: uid(), title: "Summertime", key: "Am", tempo: 72, style: "swing", timeSig: "4/4",
+      bars: [
+        ["Am","","E7",""],["Am","","",""],["Am","","E7",""],["Am","","",""],
+        ["Dm","","",""],["Am","","",""],["E7","","Am",""],["E7","","",""],
+        ["Am","","E7",""],["Am","","",""],["Dm","","",""],["Am","E7","Am",""],
+      ]
+    },
+    {
+      id: uid(), title: "Girl from Ipanema", key: "F", tempo: 130, style: "bossa", timeSig: "4/4",
+      bars: [
+        ["Fmaj7","","",""],["Fmaj7","","",""],["G7","","",""],["G7","","",""],
+        ["Gm7","","",""],["Gb7","","",""],["Fmaj7","","",""],["Fmaj7","","",""],
+        ["Gbmaj7","","",""],["Gbmaj7","","",""],["B7","","",""],["B7","","",""],
+        ["Bbm7","","",""],["Eb7","","",""],["Abmaj7","","",""],["Db7","","",""],
+        ["Gm7","","",""],["C7","","",""],["Fmaj7","","",""],["Fmaj7","","",""],
+      ]
+    },
+    {
+      id: uid(), title: "Chameleon", key: "Bb", tempo: 100, style: "funk", timeSig: "4/4",
+      bars: [
+        ["Bbm7","","",""],["Bbm7","","",""],["Bbm7","","",""],["Bbm7","","",""],
+        ["Eb7","","",""],["Eb7","","",""],["Bbm7","","",""],["Bbm7","","",""],
+        ["Bbm7","","",""],["Bbm7","","",""],["Ebm7","","",""],["Ebm7","","",""],
+      ]
+    },
+    {
+      id: uid(), title: "So What", key: "D", tempo: 136, style: "swing", timeSig: "4/4",
+      bars: [
+        ["Dm7","","",""],["Dm7","","",""],["Dm7","","",""],["Dm7","","",""],
+        ["Dm7","","",""],["Dm7","","",""],["Dm7","","",""],["Dm7","","",""],
+        ["Ebm7","","",""],["Ebm7","","",""],["Ebm7","","",""],["Ebm7","","",""],
+        ["Dm7","","",""],["Dm7","","",""],["Dm7","","",""],["Dm7","","",""],
+      ]
+    },
+    {
+      id: uid(), title: "Misty", key: "Eb", tempo: 100, style: "swing", timeSig: "4/4",
+      bars: [
+        ["Ebmaj7","","Bbm7",""],["Eb7","","Abmaj7",""],["Abm7","","Db7",""],["Ebmaj7","Cm7","Fm7","Bb7"],
+        ["Fm7","","Bb7",""],["Ebmaj7","","Eb7",""],["Abmaj7","","",""],["Am7b5","","D7",""],
+        ["Gm7","","C7",""],["Fm7","","Bb7",""],["Ebmaj7","Cm7","Fm7","Bb7"],["Ebmaj7","","",""],
+      ]
+    },
+    {
+      id: uid(), title: "Blue Bossa", key: "Cm", tempo: 116, style: "bossa", timeSig: "4/4",
+      bars: [
+        ["Cm7","","",""],["Cm7","","",""],["Fm7","","",""],["Fm7","","",""],
+        ["Dm7b5","","",""],["G7","","",""],["Cm7","","",""],["Cm7","","",""],
+        ["Ebm7","","",""],["Ab7","","",""],["Dbmaj7","","",""],["Dbmaj7","","",""],
+        ["Dm7b5","","",""],["G7","","",""],["Cm7","","",""],["Cm7","","",""],
+      ]
+    },
+    {
+      id: uid(), title: "All of Me", key: "C", tempo: 144, style: "swing", timeSig: "4/4",
+      bars: [
+        ["Cmaj7","","",""],["Cmaj7","","",""],["E7","","",""],["E7","","",""],
+        ["A7","","",""],["A7","","",""],["Dm","","",""],["Dm","","",""],
+        ["E7","","",""],["E7","","",""],["Am","","",""],["Am","","",""],
+        ["D7","","",""],["D7","","",""],["Dm7","","G7",""],["Cmaj7","","",""],
+      ]
+    },
+    {
+      id: uid(), title: "Rock Groove", key: "E", tempo: 120, style: "rock", timeSig: "4/4",
+      bars: [
+        ["E","","",""],["E","","",""],["A","","",""],["A","","",""],
+        ["B","","",""],["A","","",""],["E","","",""],["E","","",""],
+        ["E","","",""],["E","","",""],["A","","",""],["A","","",""],
+        ["B","","A",""],["B","","A",""],["E","","",""],["E","","",""],
+      ]
+    },
+    {
+      id: uid(), title: "What a Wonderful World", key: "F", tempo: 76, style: "swing", timeSig: "4/4",
+      bars: [
+        ["F","","Am",""],["Bb","","F",""],["F","","Am",""],["Bb","","F",""],
+        ["Gm7","","F",""],["E7","","Am",""],["Abmaj7","","Db7",""],["Gm7","","C7",""],
+        ["F","","Am",""],["Bb","","F",""],["Dm","","Db",""],["Gm7","","C7",""],
+        ["F","","",""],["F","","",""],
+      ]
+    },
   ];
 }
 
@@ -1620,24 +1684,77 @@ function scheduleNote(beatNum, time) {
 
   // ── CHORDS ──
   if (!mutes.chords && playChords.length && songBeat >= 0) {
-    const doChord = (style==='waltz') ? (beatInBar===0)
-      : (style==='bossa') ? ([0,2].includes(beatInBar))
-      : (style==='funk')  ? ([0,2].includes(beatInBar))
-      : (beatInBar===0 || (beatInBar===2 && bpb>=4));
-    if (doChord) {
-      const idx = songBeat % totalBeats;
-      const freqs = parseChord(playChords[idx]);
-      // Slight humanization on chord strum timing
-      const strum = humanTime(time, 8);
-      playChordVoicing(freqs, strum, chordDur, volumes.chords, chordInstrument);
-    }
+    const idx = songBeat % totalBeats;
+    const freqs = parseChord(playChords[idx]);
+    const strum = humanTime(time, 8);
+    const pat = strumPattern === 'auto' ? getAutoStrum() : strumPattern;
+    scheduleStrum(freqs, strum, chordDur, beatInBar, bpb, secPerBeat, pat);
   }
 
   const msUntilBeat = Math.max(0, (time - audioCtx.currentTime) * 1000);
   setTimeout(() => lightBeat(beatInBar, songBeat), msUntilBeat);
 }
 
-// ── Drum scheduler with ghost notes, fills, and humanization ──
+// ── Strum pattern engine ──
+function getAutoStrum() {
+  // Pick a musically appropriate default per style
+  const map = {
+    swing:  'on13',
+    bossa:  'calypso',
+    funk:   'anticipated',
+    rock:   'on1234',
+    waltz:  'on1',
+  };
+  return map[style] || 'on13';
+}
+
+// Each pattern is a list of [beatIndex, velocityScale, upstroke?]
+// beatIndex is 0-based within the bar; sub-beats expressed as fractions of secPerBeat
+function getStrumBeats(pat, bpb, spb) {
+  switch (pat) {
+    case 'on1':     return [[0, 1.0]];
+    case 'on13':    return [[0, 1.0], [2, 0.82]];
+    case 'on1234':  return [[0,1.0],[1,0.75],[2,0.85],[3,0.7]].slice(0, bpb);
+    case 'offbeat': return [[1, 0.85], [3, 0.85]].filter(b => b[0] < bpb);
+    case 'anticipated':
+      // 1, the-and-of-2 (beat 1.5), 3
+      return [[0, 1.0], [1.5, 0.78], [2, 0.82]].filter(b => b[0] < bpb);
+    case 'calypso':
+      // Classic bossa/calypso: beat 1, and-of-1, beat 3, and-of-3
+      return [[0,1.0],[0.5,0.65],[2,0.85],[2.5,0.6]].filter(b => b[0] < bpb);
+    case 'held':
+      // Single long held chord on beat 1 only
+      return [[0, 0.9]];
+    default:
+      return [[0, 1.0]];
+  }
+}
+
+function scheduleStrum(freqs, baseTime, chordDur, beatInBar, bpb, spb, pat) {
+  if (!freqs.length) return;
+  const strumBeats = getStrumBeats(pat, bpb, spb);
+
+  strumBeats.forEach(([beatOffset, velScale]) => {
+    // Only play if this beat's offset matches the current beat in bar
+    // beatOffset is the absolute beat position within the bar
+    const beatPos = beatOffset; // e.g. 0, 1, 1.5, 2 ...
+    const whole   = Math.floor(beatPos);
+    const frac    = beatPos - whole;
+
+    if (whole !== beatInBar) return; // not our beat
+
+    const timeOffset = frac * spb;
+    const vel = humanVel(volumes.chords * velScale, 0.06);
+    // Duration: hold until next strum beat or end of bar
+    const nextBeat = strumBeats.find(b => b[0] > beatPos);
+    const holdBeats = nextBeat ? (nextBeat[0] - beatPos) : (bpb - beatPos);
+    const dur = Math.min(chordDur * holdBeats / 1, spb * bpb * 0.92);
+
+    playChordVoicing(freqs, baseTime + timeOffset, Math.max(dur, 0.15), vel, chordInstrument);
+  });
+}
+
+
 function scheduleDrums(beatInBar, bpb, time, dv, spb) {
   const pat = getDrumPattern(style, beatInBar, bpb);
 
@@ -2021,6 +2138,11 @@ function toggleMute(inst) {
 function selectInstrument(el, inst) {
   chordInstrument = inst;
   document.querySelectorAll('.inst-chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+function selectStrum(el, pat) {
+  strumPattern = pat;
+  document.querySelectorAll('#strum-grid .inst-chip').forEach(c => c.classList.remove('selected'));
   el.classList.add('selected');
 }
 
