@@ -1,0 +1,1575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a1a2e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ChordBand">
+<link rel="manifest" href="manifest.json">
+<title>ChordBand</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+  :root {
+    --bg:       #0f0f1a;
+    --surface:  #1a1a2e;
+    --panel:    #22223a;
+    --border:   #2e2e50;
+    --accent:   #7c6af7;
+    --accent2:  #f7a26a;
+    --text:     #e8e6ff;
+    --muted:    #7a7a9a;
+    --beat-on:  #7c6af7;
+    --beat-off: #22223a;
+    --danger:   #f76a6a;
+    --success:  #6af7a2;
+    --radius:   10px;
+    --font:     'Space Grotesk', sans-serif;
+    --mono:     'Space Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+  }
+  .logo span { color: var(--accent2); }
+  .header-right {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+  }
+  .icon-btn {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background 0.15s;
+  }
+  .icon-btn:active { background: var(--accent); }
+
+  /* ── Tabs ── */
+  .tabs {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 8px;
+    gap: 4px;
+  }
+  .tab {
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  /* ── Main content ── */
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .tab-panel { display: none; flex: 1; flex-direction: column; }
+  .tab-panel.active { display: flex; }
+
+  /* ── Song list ── */
+  .song-list-header {
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .section-title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+  }
+  .btn-add {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-add:active { opacity: 0.8; }
+
+  .song-card {
+    margin: 0 12px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .song-card:active, .song-card.selected { border-color: var(--accent); }
+  .song-card-icon {
+    width: 40px;
+    height: 40px;
+    background: var(--panel);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .song-card-info { flex: 1; min-width: 0; }
+  .song-card-title {
+    font-weight: 600;
+    font-size: 15px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .song-card-meta {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .song-card-actions {
+    display: flex;
+    gap: 6px;
+  }
+  .song-card-btn {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .song-card-btn:active { background: var(--accent); color: #fff; }
+
+  /* ── Chart display ── */
+  .chart-header {
+    padding: 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .chart-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .chart-info {
+    font-size: 13px;
+    color: var(--muted);
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .chart-info span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .chord-grid {
+    padding: 16px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  .chord-cell {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 8px;
+    text-align: center;
+    min-height: 56px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    transition: background 0.1s, border-color 0.1s;
+  }
+  .chord-cell.active-beat {
+    background: rgba(124, 106, 247, 0.2);
+    border-color: var(--accent);
+  }
+  .chord-cell.bar-start { border-left: 3px solid var(--accent2); }
+  .chord-symbol {
+    font-family: var(--mono);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .chord-cell.empty .chord-symbol { color: var(--muted); font-size: 18px; }
+  .chord-beat-num {
+    font-size: 9px;
+    color: var(--muted);
+    position: absolute;
+    top: 4px;
+    left: 6px;
+  }
+  .chord-duration {
+    font-size: 9px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .bar-line {
+    grid-column: 1 / -1;
+    height: 1px;
+    background: var(--border);
+    margin: 2px 0;
+  }
+
+  /* ── Transport (player) ── */
+  .transport {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 16px;
+    position: sticky;
+    bottom: 0;
+    z-index: 100;
+  }
+  .transport-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .transport-song {
+    flex: 1;
+    min-width: 0;
+  }
+  .transport-song-title {
+    font-weight: 600;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .transport-song-meta {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+
+  .beat-vis {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+  }
+  .beat-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--beat-off);
+    border: 1px solid var(--border);
+    transition: background 0.06s;
+  }
+  .beat-dot.lit { background: var(--beat-on); }
+  .beat-dot.lit-1 { background: var(--accent2); }
+
+  .transport-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .play-btn {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: none;
+    color: #fff;
+    font-size: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .play-btn:active { transform: scale(0.94); }
+  .play-btn.playing { background: var(--danger); }
+
+  .tempo-section {
+    flex: 1;
+  }
+  .tempo-label {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .tempo-val {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    background: var(--panel);
+    border-radius: 2px;
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+  }
+
+  .style-select {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    outline: none;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* ── Editor ── */
+  .editor-panel {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .field-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+  }
+  .field-input {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 15px;
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    outline: none;
+    width: 100%;
+    transition: border-color 0.15s;
+  }
+  .field-input:focus { border-color: var(--accent); }
+
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .chord-editor-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  .chord-edit-cell {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: relative;
+  }
+  .chord-edit-cell-label {
+    font-size: 9px;
+    color: var(--muted);
+  }
+  .chord-edit-input {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 700;
+    padding: 6px;
+    border-radius: 6px;
+    outline: none;
+    width: 100%;
+    text-align: center;
+    transition: border-color 0.15s;
+  }
+  .chord-edit-input:focus { border-color: var(--accent); }
+  .chord-edit-input::placeholder { color: var(--muted); font-weight: 400; font-size: 11px; }
+
+  .add-bar-btn {
+    grid-column: 1 / -1;
+    background: var(--panel);
+    border: 1px dashed var(--border);
+    color: var(--muted);
+    padding: 10px;
+    border-radius: 8px;
+    font-family: var(--font);
+    font-size: 13px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .add-bar-btn:active { border-color: var(--accent); color: var(--accent); }
+
+  .remove-bar-btn {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 18px;
+    height: 18px;
+    background: var(--danger);
+    border: none;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    line-height: 1;
+    display: none;
+  }
+  .bar-group:hover .remove-bar-btn { display: flex; }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 13px;
+    border-radius: var(--radius);
+    font-family: var(--font);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    transition: opacity 0.15s;
+  }
+  .btn-primary:active { opacity: 0.8; }
+
+  .btn-danger {
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid var(--danger);
+    padding: 10px;
+    border-radius: var(--radius);
+    font-family: var(--font);
+    font-size: 14px;
+    cursor: pointer;
+    width: 100%;
+    margin-top: -4px;
+  }
+
+  /* ── Key selector ── */
+  .key-scroll {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 4px 2px;
+    scrollbar-width: none;
+  }
+  .key-scroll::-webkit-scrollbar { display: none; }
+  .key-chip {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .key-chip.selected {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed;
+    bottom: 140px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    color: var(--text);
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 13px;
+    opacity: 0;
+    transition: all 0.25s;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 200;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* ── Empty state ── */
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    gap: 12px;
+    color: var(--muted);
+    text-align: center;
+  }
+  .empty-icon { font-size: 48px; }
+  .empty-title { font-size: 16px; font-weight: 600; color: var(--text); }
+  .empty-sub { font-size: 13px; line-height: 1.5; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ── Bar group in editor ── */
+  .bar-group {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    position: relative;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+  }
+  .bar-group:first-child { border-top: none; padding-top: 0; }
+  .bar-group-label {
+    position: absolute;
+    top: -8px;
+    left: 0;
+    font-size: 9px;
+    color: var(--muted);
+    background: var(--bg);
+    padding: 0 4px;
+  }
+
+  /* time sig select */
+  select.field-input {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%237a7a9a'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+  }
+
+  .mixer-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .mixer-label {
+    font-size: 13px;
+    width: 56px;
+    flex-shrink: 0;
+  }
+  .mixer-vol { flex: 1; }
+  .mixer-mute {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-family: var(--font);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .mixer-mute.muted {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: #fff;
+  }
+
+  .status-bar {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--success);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Chord<span>Band</span></div>
+  <div class="header-right">
+    <div class="icon-btn" onclick="showHelp()" title="Help">?</div>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('songs')">Songs</div>
+  <div class="tab" onclick="switchTab('chart')">Chart</div>
+  <div class="tab" onclick="switchTab('editor')">Editor</div>
+  <div class="tab" onclick="switchTab('mixer')">Mixer</div>
+</div>
+
+<main>
+
+  <!-- SONGS TAB -->
+  <div class="tab-panel active" id="tab-songs">
+    <div class="song-list-header">
+      <span class="section-title">My Songs</span>
+      <button class="btn-add" onclick="newSong()">＋ New Song</button>
+    </div>
+    <div id="song-list"></div>
+  </div>
+
+  <!-- CHART TAB -->
+  <div class="tab-panel" id="tab-chart">
+    <div class="chart-header">
+      <div class="chart-title" id="chart-title">No song selected</div>
+      <div class="chart-info">
+        <span id="chart-key-label">—</span>
+        <span id="chart-tempo-label">—</span>
+        <span id="chart-style-label">—</span>
+        <span id="chart-time-label">—</span>
+      </div>
+    </div>
+    <div id="chord-grid" class="chord-grid"></div>
+  </div>
+
+  <!-- EDITOR TAB -->
+  <div class="tab-panel" id="tab-editor">
+    <div class="editor-panel" id="editor-panel">
+      <div class="empty-state">
+        <div class="empty-icon">🎼</div>
+        <div class="empty-title">No song selected</div>
+        <div class="empty-sub">Choose a song from the Songs tab, or create a new one.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MIXER TAB -->
+  <div class="tab-panel" id="tab-mixer">
+    <div class="editor-panel">
+      <div class="field-label">Volume Mix</div>
+      <div>
+        <div class="mixer-row">
+          <span class="mixer-label">🥁 Drums</span>
+          <input type="range" class="mixer-vol" min="0" max="100" value="80" id="vol-drums" oninput="updateMix()">
+          <button class="mixer-mute" id="mute-drums" onclick="toggleMute('drums')">Mute</button>
+        </div>
+        <div class="mixer-row">
+          <span class="mixer-label">🎸 Bass</span>
+          <input type="range" class="mixer-vol" min="0" max="100" value="75" id="vol-bass" oninput="updateMix()">
+          <button class="mixer-mute" id="mute-bass" onclick="toggleMute('bass')">Mute</button>
+        </div>
+        <div class="mixer-row">
+          <span class="mixer-label">🎹 Chords</span>
+          <input type="range" class="mixer-vol" min="0" max="100" value="65" id="vol-chords" oninput="updateMix()">
+          <button class="mixer-mute" id="mute-chords" onclick="toggleMute('chords')">Mute</button>
+        </div>
+      </div>
+      <div class="field-label" style="margin-top:16px">Counts In</div>
+      <label style="display:flex;align-items:center;gap:10px;padding:10px 0;font-size:14px;cursor:pointer;">
+        <input type="checkbox" id="count-in" checked style="width:18px;height:18px;accent-color:var(--accent)">
+        Play a 1-bar count-in before starting
+      </label>
+      <div class="field-label" style="margin-top:8px">Loop</div>
+      <label style="display:flex;align-items:center;gap:10px;padding:10px 0;font-size:14px;cursor:pointer;">
+        <input type="checkbox" id="loop-song" checked style="width:18px;height:18px;accent-color:var(--accent)">
+        Loop song continuously
+      </label>
+    </div>
+  </div>
+
+</main>
+
+<!-- TRANSPORT -->
+<div class="transport">
+  <div class="transport-top">
+    <div class="transport-song">
+      <div class="transport-song-title" id="transport-title">No song selected</div>
+      <div class="transport-song-meta" id="transport-meta">Select a song to play</div>
+    </div>
+    <div class="beat-vis" id="beat-vis">
+      <div class="beat-dot" id="b0"></div>
+      <div class="beat-dot" id="b1"></div>
+      <div class="beat-dot" id="b2"></div>
+      <div class="beat-dot" id="b3"></div>
+    </div>
+  </div>
+  <div class="transport-controls">
+    <select class="style-select" id="style-select" onchange="updateStyle()">
+      <option value="swing">Swing</option>
+      <option value="bossa">Bossa Nova</option>
+      <option value="funk">Funk</option>
+      <option value="rock">Rock</option>
+      <option value="waltz">Waltz</option>
+    </select>
+    <button class="play-btn" id="play-btn" onclick="togglePlay()">▶</button>
+    <div class="tempo-section">
+      <div class="tempo-label">
+        <span>Tempo</span>
+        <span class="tempo-val" id="tempo-display">120 BPM</span>
+      </div>
+      <input type="range" id="tempo-slider" min="40" max="280" value="120" oninput="updateTempo()">
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════
+const KEYS = ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
+const TIME_SIGS = ['4/4','3/4','2/4','6/8'];
+const STYLES = { swing:'Swing', bossa:'Bossa Nova', funk:'Funk', rock:'Rock', waltz:'Waltz' };
+
+let songs = [];
+let currentSongId = null;
+let editingSongId = null;
+let isPlaying = false;
+let tempo = 120;
+let style = 'swing';
+let playPos = { bar: 0, beat: 0 };
+let schedulerTimer = null;
+let audioCtx = null;
+let nextNoteTime = 0;
+let scheduleAheadTime = 0.12;
+let lookahead = 25;
+let currentBeat = 0;
+let totalBeats = 0;
+let beatsPerBar = 4;
+let mutes = { drums: false, bass: false, chords: false };
+let volumes = { drums: 0.8, bass: 0.75, chords: 0.65 };
+let countInBeats = 0;
+let inCountIn = false;
+
+// chord sequence flat array for playback
+let playChords = [];
+
+// ════════════════════════════════════════════════
+// DEMO SONGS
+// ════════════════════════════════════════════════
+function defaultSongs() {
+  return [
+    {
+      id: uid(),
+      title: "Autumn Leaves",
+      key: "G",
+      tempo: 120,
+      style: "swing",
+      timeSig: "4/4",
+      bars: [
+        ["Cm7","","F7",""],
+        ["Bbmaj7","","Ebmaj7",""],
+        ["Am7b5","","D7",""],
+        ["Gm","","Gm",""],
+        ["Cm7","","F7",""],
+        ["Bbmaj7","","Ebmaj7",""],
+        ["Am7b5","","D7",""],
+        ["Gm","","",""],
+      ]
+    },
+    {
+      id: uid(),
+      title: "Basic Blues",
+      key: "Bb",
+      tempo: 100,
+      style: "swing",
+      timeSig: "4/4",
+      bars: [
+        ["Bb7","","",""],
+        ["Bb7","","",""],
+        ["Bb7","","",""],
+        ["Bb7","","",""],
+        ["Eb7","","",""],
+        ["Eb7","","",""],
+        ["Bb7","","",""],
+        ["Bb7","","",""],
+        ["F7","","",""],
+        ["Eb7","","",""],
+        ["Bb7","","",""],
+        ["F7","","",""],
+      ]
+    },
+    {
+      id: uid(),
+      title: "Minor Waltz",
+      key: "Am",
+      tempo: 138,
+      style: "waltz",
+      timeSig: "3/4",
+      bars: [
+        ["Am","",""],
+        ["Dm","",""],
+        ["E7","",""],
+        ["Am","",""],
+        ["F","",""],
+        ["G7","",""],
+        ["C","",""],
+        ["E7","",""],
+      ]
+    }
+  ];
+}
+
+function uid() { return Math.random().toString(36).slice(2, 10); }
+
+// ════════════════════════════════════════════════
+// STORAGE
+// ════════════════════════════════════════════════
+function saveSongs() {
+  try { localStorage.setItem('chordbandSongs', JSON.stringify(songs)); } catch(e) {}
+}
+function loadSongs() {
+  try {
+    const s = localStorage.getItem('chordbandSongs');
+    if (s) songs = JSON.parse(s);
+    else songs = defaultSongs();
+  } catch(e) { songs = defaultSongs(); }
+  if (!songs.length) songs = defaultSongs();
+}
+
+// ════════════════════════════════════════════════
+// RENDER SONG LIST
+// ════════════════════════════════════════════════
+function renderSongList() {
+  const el = document.getElementById('song-list');
+  if (!songs.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">🎵</div><div class="empty-title">No songs yet</div><div class="empty-sub">Tap "+ New Song" to create your first chart.</div></div>`;
+    return;
+  }
+  el.innerHTML = songs.map(s => `
+    <div class="song-card ${s.id===currentSongId?'selected':''}" onclick="selectSong('${s.id}')">
+      <div class="song-card-icon">🎼</div>
+      <div class="song-card-info">
+        <div class="song-card-title">${esc(s.title)}</div>
+        <div class="song-card-meta">Key of ${esc(s.key)} · ${s.bars.length} bars · ${STYLES[s.style]||s.style}</div>
+      </div>
+      <div class="song-card-actions">
+        <div class="song-card-btn" onclick="event.stopPropagation();editSong('${s.id}')" title="Edit">✏️</div>
+        <div class="song-card-btn" onclick="event.stopPropagation();deleteSong('${s.id}')" title="Delete">🗑️</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ════════════════════════════════════════════════
+// SONG SELECTION
+// ════════════════════════════════════════════════
+function selectSong(id) {
+  if (isPlaying) stopPlayback();
+  currentSongId = id;
+  const song = songs.find(s => s.id === id);
+  if (!song) return;
+  tempo = song.tempo || 120;
+  style = song.style || 'swing';
+  document.getElementById('tempo-slider').value = tempo;
+  document.getElementById('style-select').value = style;
+  updateTempoDisplay();
+  renderSongList();
+  renderChart(song);
+  updateTransport(song);
+  buildPlayChords(song);
+  showToast(`Loaded: ${song.title}`);
+  switchTab('chart');
+}
+
+function renderChart(song) {
+  document.getElementById('chart-title').textContent = song.title;
+  document.getElementById('chart-key-label').textContent = '♩ ' + song.key;
+  document.getElementById('chart-tempo-label').textContent = '♩ = ' + song.tempo;
+  document.getElementById('chart-style-label').textContent = STYLES[song.style]||song.style;
+  document.getElementById('chart-time-label').textContent = song.timeSig;
+
+  const bpb = parseInt(song.timeSig);
+  const grid = document.getElementById('chord-grid');
+  grid.style.gridTemplateColumns = `repeat(${bpb}, 1fr)`;
+
+  let html = '';
+  song.bars.forEach((bar, bi) => {
+    bar.forEach((chord, ci) => {
+      const isStart = ci === 0;
+      const isEmpty = !chord.trim();
+      html += `<div class="chord-cell ${isStart?'bar-start':''} ${isEmpty?'empty':''}" id="cell-${bi}-${ci}" data-bar="${bi}" data-beat="${ci}">
+        <span class="chord-beat-num">${bi+1}.${ci+1}</span>
+        <span class="chord-symbol">${isEmpty ? (ci===0?'%':'—') : esc(chord)}</span>
+        ${isEmpty && ci>0 ? '' : ''}
+      </div>`;
+    });
+    if ((bi+1) % 2 === 0 && bi < song.bars.length - 1) {
+      html += `<div class="bar-line"></div>`;
+    }
+  });
+  grid.innerHTML = html;
+}
+
+function updateTransport(song) {
+  document.getElementById('transport-title').textContent = song.title;
+  document.getElementById('transport-meta').textContent = `Key of ${song.key} · ${song.tempo} BPM · ${STYLES[song.style]||song.style}`;
+  beatsPerBar = parseInt(song.timeSig) || 4;
+  updateBeatVis();
+}
+
+function buildPlayChords(song) {
+  // flat array of chord symbol per beat
+  playChords = [];
+  song.bars.forEach(bar => {
+    bar.forEach((chord, i) => {
+      // carry forward: if empty, use previous
+      if (chord.trim()) playChords.push(chord.trim());
+      else playChords.push(playChords.length ? playChords[playChords.length-1] : 'N.C.');
+    });
+  });
+  totalBeats = playChords.length;
+}
+
+// ════════════════════════════════════════════════
+// BEAT VISUALIZER
+// ════════════════════════════════════════════════
+function updateBeatVis() {
+  const vis = document.getElementById('beat-vis');
+  const bpb = beatsPerBar <= 4 ? beatsPerBar : 4;
+  vis.innerHTML = Array.from({length: bpb}, (_,i) =>
+    `<div class="beat-dot" id="b${i}"></div>`
+  ).join('');
+}
+
+function lightBeat(beat) {
+  const bpb = beatsPerBar <= 4 ? beatsPerBar : 4;
+  for (let i=0; i<bpb; i++) {
+    const d = document.getElementById('b'+i);
+    if (!d) continue;
+    d.classList.remove('lit','lit-1');
+  }
+  const idx = beat % bpb;
+  const d = document.getElementById('b'+idx);
+  if (d) d.classList.add(idx===0 ? 'lit-1' : 'lit');
+
+  // highlight chart cell
+  if (!inCountIn && currentSongId) {
+    const song = songs.find(s=>s.id===currentSongId);
+    if (song) {
+      const bpb2 = parseInt(song.timeSig)||4;
+      const bar = Math.floor(currentBeat / bpb2);
+      const bt = currentBeat % bpb2;
+      // clear previous
+      document.querySelectorAll('.chord-cell.active-beat').forEach(c=>c.classList.remove('active-beat'));
+      const cell = document.getElementById(`cell-${bar}-${bt}`);
+      if (cell) {
+        cell.classList.add('active-beat');
+        cell.scrollIntoView({block:'nearest', behavior:'smooth'});
+      }
+    }
+  }
+}
+
+// ════════════════════════════════════════════════
+// AUDIO ENGINE
+// ════════════════════════════════════════════════
+function ensureCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+// Chord → frequencies (simple voicing, root + 3rd + 5th + 7th)
+const NOTE_FREQS = {
+  'C':261.63,'C#':277.18,'Db':277.18,'D':293.66,'D#':311.13,'Eb':311.13,
+  'E':329.63,'F':349.23,'F#':369.99,'Gb':369.99,'G':392.00,'G#':415.30,
+  'Ab':415.30,'A':440.00,'A#':466.16,'Bb':466.16,'B':493.88
+};
+const SEMITONES = ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
+
+function noteFreq(name, octave) {
+  const base = NOTE_FREQS[name] || 261.63;
+  const oct = octave !== undefined ? octave : 4;
+  return base * Math.pow(2, oct - 4);
+}
+
+function parseChord(sym) {
+  if (!sym || sym === 'N.C.') return [];
+  // extract root
+  let root = sym.match(/^[A-G][b#]?/)?.[0] || 'C';
+  let quality = sym.slice(root.length);
+  const rootIdx = SEMITONES.indexOf(root.replace('♭','b').replace('♯','#'));
+  if (rootIdx < 0) return [];
+  // intervals: [root, 3rd, 5th, 7th]
+  let intervals;
+  if (quality.includes('maj7') || quality.includes('M7')) intervals = [0,4,7,11];
+  else if (quality.includes('m7b5') || quality.includes('ø')) intervals = [0,3,6,10];
+  else if (quality.includes('dim7')) intervals = [0,3,6,9];
+  else if (quality.includes('dim')) intervals = [0,3,6];
+  else if (quality.includes('aug')) intervals = [0,4,8];
+  else if (quality.includes('sus4')) intervals = [0,5,7];
+  else if (quality.includes('sus2')) intervals = [0,2,7];
+  else if (quality.match(/^m/) && quality.includes('7')) intervals = [0,3,7,10];
+  else if (quality.match(/^m/)) intervals = [0,3,7];
+  else if (quality.includes('7')) intervals = [0,4,7,10];
+  else if (quality.includes('9')) intervals = [0,4,7,10,14];
+  else intervals = [0,4,7]; // major
+
+  return intervals.map(i => {
+    const ni = (rootIdx + i) % 12;
+    const octave = 3 + Math.floor((rootIdx + i) / 12);
+    return noteFreq(SEMITONES[ni], octave);
+  });
+}
+
+function bassFreqForChord(sym) {
+  if (!sym || sym === 'N.C.') return null;
+  const root = sym.match(/^[A-G][b#]?/)?.[0] || 'C';
+  return noteFreq(root, 2);
+}
+
+// Synth functions
+function playTone(freq, startTime, duration, gainVal, type='sine', env={a:0.01,d:0.1,s:0.6,r:0.15}) {
+  if (!audioCtx) return;
+  const g = audioCtx.createGain();
+  g.connect(audioCtx.destination);
+  const osc = audioCtx.createOscillator();
+  osc.type = type;
+  osc.frequency.value = freq;
+  osc.connect(g);
+  const t = startTime;
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(gainVal, t + env.a);
+  g.gain.setValueAtTime(gainVal * env.s, t + env.a + env.d);
+  g.gain.setValueAtTime(gainVal * env.s, t + duration - env.r);
+  g.gain.linearRampToValueAtTime(0, t + duration);
+  osc.start(t);
+  osc.stop(t + duration + 0.05);
+}
+
+function playNoise(startTime, duration, gainVal, freq=200) {
+  if (!audioCtx) return;
+  const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * duration, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i=0; i<data.length; i++) data[i] = (Math.random()*2-1);
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  const flt = audioCtx.createBiquadFilter();
+  flt.type = 'bandpass';
+  flt.frequency.value = freq;
+  flt.Q.value = 1.5;
+  const g = audioCtx.createGain();
+  src.connect(flt); flt.connect(g); g.connect(audioCtx.destination);
+  g.gain.setValueAtTime(gainVal, startTime);
+  g.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+  src.start(startTime);
+  src.stop(startTime + duration + 0.01);
+}
+
+function scheduleNote(beatNum, time) {
+  const bpb = beatsPerBar;
+  const beatInBar = beatNum % bpb;
+  const secPerBeat = 60 / tempo;
+  const chordDur = secPerBeat * 0.9;
+
+  // DRUMS
+  if (!mutes.drums) {
+    const dv = volumes.drums;
+    const pat = getDrumPattern(style, beatInBar, bpb);
+    if (pat.kick)  playTone(55,  time, 0.12, dv*0.7, 'sine',   {a:0.005,d:0.08,s:0,r:0.05});
+    if (pat.snare) playNoise(time, 0.08, dv*0.45, 220);
+    if (pat.hat)   playNoise(time, 0.04, dv*0.25, 8000);
+    if (pat.ride)  playTone(880, time, 0.08, dv*0.18,'sine',   {a:0.005,d:0.06,s:0,r:0.04});
+  }
+
+  // BASS
+  if (!mutes.bass && playChords.length) {
+    const idx = beatNum % totalBeats;
+    const chord = playChords[idx];
+    if (beatInBar === 0 || (style==='bossa' && beatInBar===2) || (style==='funk' && [0,2].includes(beatInBar))) {
+      const bf = bassFreqForChord(chord);
+      if (bf) {
+        playTone(bf, time, secPerBeat*0.7, volumes.bass*0.5, 'triangle', {a:0.01,d:0.05,s:0.7,r:0.1});
+        // walking notes on beat 3 swing
+        if (style==='swing' && beatInBar===2 && bpb>=4) {
+          playTone(bf*1.122, time+secPerBeat, secPerBeat*0.4, volumes.bass*0.3,'triangle',{a:0.01,d:0.05,s:0.5,r:0.1});
+        }
+      }
+    }
+  }
+
+  // CHORDS — strum on beat 1 (and 3 for some styles)
+  if (!mutes.chords && playChords.length) {
+    const doChord = (style==='waltz') ? (beatInBar===0)
+      : (style==='bossa') ? ([0,2].includes(beatInBar))
+      : (style==='funk')  ? ([0,2].includes(beatInBar))
+      : (beatInBar===0 || (beatInBar===2 && bpb>=4));
+    if (doChord) {
+      const idx = beatNum % totalBeats;
+      const freqs = parseChord(playChords[idx]);
+      freqs.forEach((f,i) => {
+        setTimeout(()=>{
+          playTone(f, time+(i*0.012), chordDur, volumes.chords*0.18, 'triangle', {a:0.02,d:0.1,s:0.5,r:0.2});
+        }, 0);
+      });
+    }
+  }
+
+  // update UI on next frame
+  requestAnimationFrame(()=> lightBeat(beatInBar));
+}
+
+function getDrumPattern(style, beat, bpb) {
+  const p = { kick:false, snare:false, hat:false, ride:false };
+  if (style==='swing') {
+    p.kick  = [0,4].includes(beat % 8) || beat===0;
+    p.snare = [2,6].includes(beat % 8);
+    p.ride  = true;
+  } else if (style==='bossa') {
+    p.kick  = [0,3].includes(beat % 4);
+    p.hat   = [1,3].includes(beat % 4);
+    p.ride  = [0,2].includes(beat % 4);
+  } else if (style==='funk') {
+    p.kick  = [0,3].includes(beat % 4);
+    p.snare = beat % 4 === 2;
+    p.hat   = true;
+  } else if (style==='rock') {
+    p.kick  = [0,2].includes(beat % 4);
+    p.snare = [1,3].includes(beat % 4);
+    p.hat   = true;
+  } else if (style==='waltz') {
+    p.kick  = beat % 3 === 0;
+    p.hat   = beat % 3 !== 0;
+    p.snare = beat % 3 === 1;
+  }
+  return p;
+}
+
+function scheduler() {
+  while (nextNoteTime < audioCtx.currentTime + scheduleAheadTime) {
+    scheduleNote(currentBeat, nextNoteTime);
+    const secPerBeat = 60 / tempo;
+    nextNoteTime += secPerBeat;
+    currentBeat++;
+
+    if (inCountIn) {
+      countInBeats--;
+      if (countInBeats <= 0) inCountIn = false;
+    }
+
+    if (!inCountIn && totalBeats > 0 && (currentBeat - (document.getElementById('count-in').checked ? beatsPerBar : 0)) >= totalBeats) {
+      if (document.getElementById('loop-song').checked) {
+        currentBeat = document.getElementById('count-in').checked ? beatsPerBar : 0;
+      } else {
+        setTimeout(stopPlayback, (nextNoteTime - audioCtx.currentTime)*1000 + 100);
+        return;
+      }
+    }
+  }
+  schedulerTimer = setTimeout(scheduler, lookahead);
+}
+
+function startPlayback() {
+  if (!currentSongId) { showToast('Select a song first'); return; }
+  ensureCtx();
+  const song = songs.find(s=>s.id===currentSongId);
+  if (!song) return;
+  buildPlayChords(song);
+  beatsPerBar = parseInt(song.timeSig)||4;
+  updateBeatVis();
+
+  const countIn = document.getElementById('count-in').checked;
+  if (countIn) {
+    inCountIn = true;
+    countInBeats = beatsPerBar;
+    currentBeat = 0;
+  } else {
+    inCountIn = false;
+    currentBeat = 0;
+  }
+
+  nextNoteTime = audioCtx.currentTime + 0.05;
+  isPlaying = true;
+  document.getElementById('play-btn').textContent = '⏹';
+  document.getElementById('play-btn').classList.add('playing');
+  scheduler();
+}
+
+function stopPlayback() {
+  isPlaying = false;
+  clearTimeout(schedulerTimer);
+  currentBeat = 0;
+  inCountIn = false;
+  document.getElementById('play-btn').textContent = '▶';
+  document.getElementById('play-btn').classList.remove('playing');
+  document.querySelectorAll('.chord-cell.active-beat').forEach(c=>c.classList.remove('active-beat'));
+  document.querySelectorAll('.beat-dot').forEach(d=>{d.classList.remove('lit','lit-1');});
+}
+
+function togglePlay() {
+  if (isPlaying) stopPlayback();
+  else startPlayback();
+}
+
+// ════════════════════════════════════════════════
+// TEMPO & STYLE
+// ════════════════════════════════════════════════
+function updateTempo() {
+  tempo = parseInt(document.getElementById('tempo-slider').value);
+  updateTempoDisplay();
+  if (currentSongId) {
+    const song = songs.find(s=>s.id===currentSongId);
+    if (song) { song.tempo = tempo; saveSongs(); }
+  }
+}
+function updateTempoDisplay() {
+  document.getElementById('tempo-display').textContent = tempo + ' BPM';
+}
+function updateStyle() {
+  style = document.getElementById('style-select').value;
+  if (currentSongId) {
+    const song = songs.find(s=>s.id===currentSongId);
+    if (song) { song.style = style; saveSongs(); renderChart(song); updateTransport(song); }
+  }
+}
+function updateMix() {
+  volumes.drums  = document.getElementById('vol-drums').value / 100;
+  volumes.bass   = document.getElementById('vol-bass').value  / 100;
+  volumes.chords = document.getElementById('vol-chords').value / 100;
+}
+function toggleMute(inst) {
+  mutes[inst] = !mutes[inst];
+  const btn = document.getElementById('mute-'+inst);
+  btn.classList.toggle('muted', mutes[inst]);
+  btn.textContent = mutes[inst] ? 'Unmute' : 'Mute';
+}
+
+// ════════════════════════════════════════════════
+// EDITOR
+// ════════════════════════════════════════════════
+function editSong(id) {
+  editingSongId = id;
+  const song = songs.find(s=>s.id===id) || blankSong();
+  renderEditor(song);
+  switchTab('editor');
+}
+
+function newSong() {
+  const song = {
+    id: uid(),
+    title: 'New Song',
+    key: 'C',
+    tempo: 120,
+    style: 'swing',
+    timeSig: '4/4',
+    bars: [['C','','Am',''],['F','','G7','']]
+  };
+  songs.push(song);
+  saveSongs();
+  editSong(song.id);
+  renderSongList();
+}
+
+function deleteSong(id) {
+  if (!confirm('Delete this song?')) return;
+  songs = songs.filter(s=>s.id!==id);
+  if (currentSongId===id) { currentSongId=null; if(isPlaying) stopPlayback(); }
+  saveSongs();
+  renderSongList();
+  showToast('Song deleted');
+}
+
+function renderEditor(song) {
+  const bpb = parseInt(song.timeSig)||4;
+  const panel = document.getElementById('editor-panel');
+  const keyOptions = KEYS.map(k=>
+    `<div class="key-chip ${k===song.key?'selected':''}" onclick="editorSetKey('${k}')">${k}</div>`
+  ).join('');
+  const styleOptions = Object.entries(STYLES).map(([v,l])=>
+    `<option value="${v}" ${v===song.style?'selected':''}>${l}</option>`
+  ).join('');
+  const timeSigOptions = TIME_SIGS.map(t=>
+    `<option value="${t}" ${t===song.timeSig?'selected':''}>${t}</option>`
+  ).join('');
+
+  let barsHtml = song.bars.map((bar, bi) => {
+    const cells = Array.from({length: bpb}, (_,ci) =>
+      `<div class="chord-edit-cell">
+        <span class="chord-edit-cell-label">Beat ${ci+1}</span>
+        <input class="chord-edit-input" type="text" maxlength="10" value="${esc(bar[ci]||'')}" placeholder="${ci===0?'chord':'—'}" data-bar="${bi}" data-beat="${ci}" oninput="editorChordChange(this)">
+      </div>`
+    ).join('');
+    return `<div class="bar-group" id="bargroup-${bi}">
+      <span class="bar-group-label">Bar ${bi+1}</span>
+      <button class="remove-bar-btn" onclick="removeBar(${bi})">✕</button>
+      ${cells}
+    </div>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <div class="field-group">
+      <div class="field-label">Song Title</div>
+      <input class="field-input" id="ed-title" type="text" value="${esc(song.title)}" oninput="editorFieldChange()">
+    </div>
+    <div class="field-row">
+      <div class="field-group">
+        <div class="field-label">Time Sig</div>
+        <select class="field-input" id="ed-timesig" onchange="editorTimeSigChange()">${timeSigOptions}</select>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Style</div>
+        <select class="field-input" id="ed-style" onchange="editorFieldChange()">${styleOptions}</select>
+      </div>
+    </div>
+    <div class="field-group">
+      <div class="field-label">Key</div>
+      <div class="key-scroll">${keyOptions}</div>
+    </div>
+    <div class="field-label">Chords (${bpb} beats per bar)</div>
+    <div class="chord-editor-grid" id="ed-chord-grid">${barsHtml}</div>
+    <button class="add-bar-btn" onclick="addBar()">+ Add Bar</button>
+    <button class="btn-primary" onclick="saveSong()">Save Song</button>
+    <button class="btn-danger" onclick="cancelEdit()">Cancel</button>
+  `;
+}
+
+function editorSong() {
+  return songs.find(s=>s.id===editingSongId);
+}
+
+function editorFieldChange() {
+  const song = editorSong(); if (!song) return;
+  song.title = document.getElementById('ed-title').value;
+  song.style = document.getElementById('ed-style').value;
+  saveSongs();
+}
+
+function editorSetKey(k) {
+  const song = editorSong(); if (!song) return;
+  song.key = k;
+  saveSongs();
+  document.querySelectorAll('.key-chip').forEach(c=>c.classList.remove('selected'));
+  event.target.classList.add('selected');
+}
+
+function editorTimeSigChange() {
+  const song = editorSong(); if (!song) return;
+  const newSig = document.getElementById('ed-timesig').value;
+  const bpb = parseInt(newSig)||4;
+  song.timeSig = newSig;
+  // resize bars
+  song.bars = song.bars.map(bar => {
+    const nb = Array(bpb).fill('');
+    for (let i=0; i<Math.min(bar.length, bpb); i++) nb[i] = bar[i];
+    return nb;
+  });
+  saveSongs();
+  renderEditor(song);
+}
+
+function editorChordChange(input) {
+  const song = editorSong(); if (!song) return;
+  const bi = parseInt(input.dataset.bar);
+  const ci = parseInt(input.dataset.beat);
+  song.bars[bi][ci] = input.value;
+  saveSongs();
+}
+
+function addBar() {
+  const song = editorSong(); if (!song) return;
+  const bpb = parseInt(song.timeSig)||4;
+  song.bars.push(Array(bpb).fill(''));
+  saveSongs();
+  renderEditor(song);
+  // scroll to bottom
+  setTimeout(()=>{
+    const g = document.getElementById('ed-chord-grid');
+    if (g) g.lastElementChild?.scrollIntoView({behavior:'smooth'});
+  }, 50);
+}
+
+function removeBar(bi) {
+  const song = editorSong(); if (!song || song.bars.length<=1) return;
+  song.bars.splice(bi, 1);
+  saveSongs();
+  renderEditor(song);
+}
+
+function saveSong() {
+  const song = editorSong(); if (!song) return;
+  song.title = document.getElementById('ed-title').value || 'Untitled';
+  song.style = document.getElementById('ed-style').value;
+  saveSongs();
+  renderSongList();
+  if (currentSongId === song.id) {
+    renderChart(song);
+    updateTransport(song);
+    buildPlayChords(song);
+  }
+  showToast('Song saved ✓');
+  switchTab('songs');
+}
+
+function cancelEdit() {
+  editingSongId = null;
+  switchTab('songs');
+}
+
+// ════════════════════════════════════════════════
+// TABS
+// ════════════════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    const names = ['songs','chart','editor','mixer'];
+    t.classList.toggle('active', names[i]===name);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => {
+    p.classList.toggle('active', p.id==='tab-'+name);
+  });
+}
+
+// ════════════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+// ════════════════════════════════════════════════
+// HELP
+// ════════════════════════════════════════════════
+function showHelp() {
+  alert(
+    'ChordBand — Quick Guide\n\n' +
+    '• Songs: Browse, create, edit, or delete charts\n' +
+    '• Chart: See the chord chart with beat highlighting\n' +
+    '• Editor: Enter chords, key, time sig, and style\n' +
+    '• Mixer: Adjust volume of drums, bass, chords\n\n' +
+    '▶ Press Play in the transport bar at the bottom.\n' +
+    'Adjust tempo with the slider. Use the style dropdown to change the feel.\n\n' +
+    'Chord syntax examples:\n' +
+    '  C  Dm  G7  Cmaj7  Am7  F#m  Bb  Ebmaj7\n' +
+    '  D7  Bm7b5  Gdim  Aaug  Gsus4\n\n' +
+    'Save to home screen (Android): tap ⋮ menu → "Add to Home screen"'
+  );
+}
+
+// ════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════
+loadSongs();
+renderSongList();
+// auto-select first song
+if (songs.length) {
+  currentSongId = songs[0].id;
+  const song = songs[0];
+  tempo = song.tempo;
+  style = song.style;
+  document.getElementById('tempo-slider').value = tempo;
+  document.getElementById('style-select').value = style;
+  updateTempoDisplay();
+  renderChart(song);
+  updateTransport(song);
+  buildPlayChords(song);
+  renderSongList();
+}
+</script>
+</body>
+</html>
