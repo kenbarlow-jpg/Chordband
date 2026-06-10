@@ -251,7 +251,8 @@
     background: rgba(124, 106, 247, 0.2);
     border-color: var(--accent);
   }
-  .chord-cell.bar-start { border-left: 3px solid var(--accent2); }
+  .chord-cell.bar-start { border-left: 3px solid var(--accent2); cursor: pointer; }
+  .chord-cell.bar-start:active { background: rgba(247, 162, 106, 0.15); }
   .chord-symbol {
     font-family: var(--mono);
     font-size: 16px;
@@ -665,6 +666,30 @@
     color: #fff;
   }
 
+  .inst-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .inst-chip {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .inst-chip.selected {
+    background: rgba(124,106,247,0.18);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .inst-chip:active { opacity: 0.7; }
+
   .status-bar {
     font-size: 11px;
     color: var(--muted);
@@ -746,6 +771,11 @@
       <div class="field-label">Volume Mix</div>
       <div>
         <div class="mixer-row">
+          <span class="mixer-label">🪘 Click</span>
+          <input type="range" class="mixer-vol" min="0" max="100" value="70" id="vol-click" oninput="updateMix()">
+          <button class="mixer-mute" id="mute-click" onclick="toggleMute('click')">Mute</button>
+        </div>
+        <div class="mixer-row">
           <span class="mixer-label">🥁 Drums</span>
           <input type="range" class="mixer-vol" min="0" max="100" value="80" id="vol-drums" oninput="updateMix()">
           <button class="mixer-mute" id="mute-drums" onclick="toggleMute('drums')">Mute</button>
@@ -761,12 +791,24 @@
           <button class="mixer-mute" id="mute-chords" onclick="toggleMute('chords')">Mute</button>
         </div>
       </div>
-      <div class="field-label" style="margin-top:16px">Counts In</div>
+
+      <div class="field-label" style="margin-top:20px">Chord Instrument</div>
+      <div class="inst-grid" id="inst-grid">
+        <div class="inst-chip selected" data-inst="piano" onclick="selectInstrument(this,'piano')">🎹 Piano</div>
+        <div class="inst-chip" data-inst="epiano" onclick="selectInstrument(this,'epiano')">🎸 E. Piano</div>
+        <div class="inst-chip" data-inst="organ" onclick="selectInstrument(this,'organ')">🎺 Organ</div>
+        <div class="inst-chip" data-inst="vibes" onclick="selectInstrument(this,'vibes')">🔔 Vibraphone</div>
+        <div class="inst-chip" data-inst="guitar" onclick="selectInstrument(this,'guitar')">🎸 Guitar</div>
+        <div class="inst-chip" data-inst="pad" onclick="selectInstrument(this,'pad')">🌊 Synth Pad</div>
+        <div class="inst-chip" data-inst="strings" onclick="selectInstrument(this,'strings')">🎻 Strings</div>
+        <div class="inst-chip" data-inst="marimba" onclick="selectInstrument(this,'marimba')">🪘 Marimba</div>
+      </div>
+
+      <div class="field-label" style="margin-top:20px">Playback</div>
       <label style="display:flex;align-items:center;gap:10px;padding:10px 0;font-size:14px;cursor:pointer;">
         <input type="checkbox" id="count-in" checked style="width:18px;height:18px;accent-color:var(--accent)">
         Play a 1-bar count-in before starting
       </label>
-      <div class="field-label" style="margin-top:8px">Loop</div>
       <label style="display:flex;align-items:center;gap:10px;padding:10px 0;font-size:14px;cursor:pointer;">
         <input type="checkbox" id="loop-song" checked style="width:18px;height:18px;accent-color:var(--accent)">
         Loop song continuously
@@ -834,8 +876,9 @@ let lookahead = 25;
 let currentBeat = 0;
 let totalBeats = 0;
 let beatsPerBar = 4;
-let mutes = { drums: false, bass: false, chords: false };
-let volumes = { drums: 0.8, bass: 0.75, chords: 0.65 };
+let mutes = { click: false, drums: false, bass: false, chords: false };
+let volumes = { click: 0.7, drums: 0.8, bass: 0.75, chords: 0.65 };
+let chordInstrument = 'piano';
 let countInBeats = 0;
 let inCountIn = false;
 
@@ -990,10 +1033,10 @@ function renderChart(song) {
     bar.forEach((chord, ci) => {
       const isStart = ci === 0;
       const isEmpty = !chord.trim();
-      html += `<div class="chord-cell ${isStart?'bar-start':''} ${isEmpty?'empty':''}" id="cell-${bi}-${ci}" data-bar="${bi}" data-beat="${ci}">
+      const seekAttr = isStart ? `onclick="seekToBar(${bi})"` : '';
+      html += `<div class="chord-cell ${isStart?'bar-start':''} ${isEmpty?'empty':''}" id="cell-${bi}-${ci}" data-bar="${bi}" data-beat="${ci}" ${seekAttr}>
         <span class="chord-beat-num">${bi+1}.${ci+1}</span>
         <span class="chord-symbol">${isEmpty ? (ci===0?'%':'—') : esc(chord)}</span>
-        ${isEmpty && ci>0 ? '' : ''}
       </div>`;
     });
     if ((bi+1) % 2 === 0 && bi < song.bars.length - 1) {
@@ -1034,25 +1077,24 @@ function updateBeatVis() {
   ).join('');
 }
 
-function lightBeat(beat) {
+function lightBeat(beatInBar, songBeat) {
   const bpb = beatsPerBar <= 4 ? beatsPerBar : 4;
   for (let i=0; i<bpb; i++) {
     const d = document.getElementById('b'+i);
     if (!d) continue;
     d.classList.remove('lit','lit-1');
   }
-  const idx = beat % bpb;
+  const idx = beatInBar % bpb;
   const d = document.getElementById('b'+idx);
   if (d) d.classList.add(idx===0 ? 'lit-1' : 'lit');
 
   // highlight chart cell
-  if (!inCountIn && currentSongId) {
+  if (songBeat >= 0 && currentSongId) {
     const song = songs.find(s=>s.id===currentSongId);
     if (song) {
       const bpb2 = parseInt(song.timeSig)||4;
-      const bar = Math.floor(currentBeat / bpb2);
-      const bt = currentBeat % bpb2;
-      // clear previous
+      const bar = Math.floor(songBeat / bpb2);
+      const bt = songBeat % bpb2;
       document.querySelectorAll('.chord-cell.active-beat').forEach(c=>c.classList.remove('active-beat'));
       const cell = document.getElementById(`cell-${bar}-${bt}`);
       if (cell) {
@@ -1071,7 +1113,50 @@ function ensureCtx() {
   if (audioCtx.state === 'suspended') audioCtx.resume();
 }
 
-// Chord → frequencies (simple voicing, root + 3rd + 5th + 7th)
+// ── Metronome click (woodblock-style, no harsh beep) ──
+function playClick(time, isDownbeat, gainVal) {
+  if (!audioCtx) return;
+
+  // Two-layer click: a transient "knock" body + a very short tonal ping
+  const sampleRate = audioCtx.sampleRate;
+  const dur = 0.04;
+  const buf = audioCtx.createBuffer(1, Math.ceil(sampleRate * dur), sampleRate);
+  const d = buf.getChannelData(0);
+
+  // Noise burst shaped like a wood strike
+  for (let i = 0; i < d.length; i++) {
+    const t = i / sampleRate;
+    d[i] = (Math.random() * 2 - 1) * Math.exp(-t * 180);
+  }
+
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+
+  // Band-pass to give it a warm woody thud
+  const bp = audioCtx.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = isDownbeat ? 1100 : 700;
+  bp.Q.value = 2.5;
+
+  // High shelf to add a bit of click transient
+  const hs = audioCtx.createBiquadFilter();
+  hs.type = 'highshelf';
+  hs.frequency.value = 3000;
+  hs.gain.value = isDownbeat ? 6 : 2;
+
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(gainVal * (isDownbeat ? 1.0 : 0.65), time);
+  g.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+
+  src.connect(bp);
+  bp.connect(hs);
+  hs.connect(g);
+  g.connect(audioCtx.destination);
+  src.start(time);
+  src.stop(time + dur + 0.01);
+}
+
+// ── Note frequency table ──
 const NOTE_FREQS = {
   'C':261.63,'C#':277.18,'Db':277.18,'D':293.66,'D#':311.13,'Eb':311.13,
   'E':329.63,'F':349.23,'F#':369.99,'Gb':369.99,'G':392.00,'G#':415.30,
@@ -1081,36 +1166,33 @@ const SEMITONES = ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
 
 function noteFreq(name, octave) {
   const base = NOTE_FREQS[name] || 261.63;
-  const oct = octave !== undefined ? octave : 4;
-  return base * Math.pow(2, oct - 4);
+  return base * Math.pow(2, (octave !== undefined ? octave : 4) - 4);
 }
 
 function parseChord(sym) {
   if (!sym || sym === 'N.C.') return [];
-  // extract root
-  let root = sym.match(/^[A-G][b#]?/)?.[0] || 'C';
-  let quality = sym.slice(root.length);
-  const rootIdx = SEMITONES.indexOf(root.replace('♭','b').replace('♯','#'));
+  const root = sym.match(/^[A-G][b#]?/)?.[0] || 'C';
+  const quality = sym.slice(root.length);
+  const rootIdx = SEMITONES.indexOf(root);
   if (rootIdx < 0) return [];
-  // intervals: [root, 3rd, 5th, 7th]
   let intervals;
-  if (quality.includes('maj7') || quality.includes('M7')) intervals = [0,4,7,11];
-  else if (quality.includes('m7b5') || quality.includes('ø')) intervals = [0,3,6,10];
-  else if (quality.includes('dim7')) intervals = [0,3,6,9];
-  else if (quality.includes('dim')) intervals = [0,3,6];
-  else if (quality.includes('aug')) intervals = [0,4,8];
-  else if (quality.includes('sus4')) intervals = [0,5,7];
-  else if (quality.includes('sus2')) intervals = [0,2,7];
+  if      (quality.includes('maj7') || quality.includes('M7')) intervals = [0,4,7,11];
+  else if (quality.includes('m7b5') || quality.includes('ø'))  intervals = [0,3,6,10];
+  else if (quality.includes('dim7'))  intervals = [0,3,6,9];
+  else if (quality.includes('dim'))   intervals = [0,3,6];
+  else if (quality.includes('aug'))   intervals = [0,4,8];
+  else if (quality.includes('sus4'))  intervals = [0,5,7];
+  else if (quality.includes('sus2'))  intervals = [0,2,7];
   else if (quality.match(/^m/) && quality.includes('7')) intervals = [0,3,7,10];
-  else if (quality.match(/^m/)) intervals = [0,3,7];
-  else if (quality.includes('7')) intervals = [0,4,7,10];
-  else if (quality.includes('9')) intervals = [0,4,7,10,14];
-  else intervals = [0,4,7]; // major
+  else if (quality.match(/^m/))       intervals = [0,3,7];
+  else if (quality.includes('9'))     intervals = [0,4,7,10,14];
+  else if (quality.includes('7'))     intervals = [0,4,7,10];
+  else                                intervals = [0,4,7];
 
   return intervals.map(i => {
     const ni = (rootIdx + i) % 12;
-    const octave = 3 + Math.floor((rootIdx + i) / 12);
-    return noteFreq(SEMITONES[ni], octave);
+    const oct = 3 + Math.floor((rootIdx + i) / 12);
+    return noteFreq(SEMITONES[ni], oct);
   });
 }
 
@@ -1120,13 +1202,226 @@ function bassFreqForChord(sym) {
   return noteFreq(root, 2);
 }
 
-// Synth functions
-function playTone(freq, startTime, duration, gainVal, type='sine', env={a:0.01,d:0.1,s:0.6,r:0.15}) {
+// ════════════════════════════════════════════════
+// SAMPLE ENGINE
+// ════════════════════════════════════════════════
+
+// Maps instrument name → soundfont instrument name on CDN
+const SOUNDFONT_MAP = {
+  piano:   'acoustic_grand_piano',
+  epiano:  'electric_piano_1',
+  organ:   'drawbar_organ',
+  vibes:   'vibraphone',
+  guitar:  'acoustic_guitar_nylon',
+  pad:     'pad_2_warm',
+  strings: 'string_ensemble_1',
+  marimba: 'marimba',
+};
+
+// Bass instrument
+const BASS_SOUNDFONT = 'acoustic_bass';
+
+const CDN = 'https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM';
+
+// Loaded sample buffers: sampleBuffers[inst][noteKey] = AudioBuffer
+const sampleBuffers = {};
+let samplesLoaded = false;
+let samplesLoading = false;
+const loadingStatus = {};
+
+// MIDI note name list for fetching (we load one per octave across the range)
+const FETCH_NOTES = [
+  'C2','E2','Ab2',
+  'C3','E3','Ab3',
+  'C4','E4','Ab4',
+  'C5','E5',
+];
+const BASS_NOTES = ['C1','E1','Ab1','C2','E2','Ab2','C3'];
+
+function noteNameToMidi(name) {
+  const map = {C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,F:5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11};
+  const m = name.match(/^([A-G][b#]?)(\d)$/);
+  if (!m) return 60;
+  return (parseInt(m[2]) + 1) * 12 + (map[m[1]] ?? 0);
+}
+
+function midiToFreq(midi) {
+  return 440 * Math.pow(2, (midi - 69) / 12);
+}
+
+async function loadSoundfont(inst, noteList) {
+  const sfName = SOUNDFONT_MAP[inst] || inst;
+  if (!sampleBuffers[inst]) sampleBuffers[inst] = {};
+  const fetches = noteList.map(async note => {
+    const url = `${CDN}/${sfName}-mp3/${note}.mp3`;
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) return;
+      const arrayBuf = await resp.arrayBuffer();
+      const audioBuf = await audioCtx.decodeAudioData(arrayBuf);
+      sampleBuffers[inst][note] = audioBuf;
+    } catch(e) { /* skip failed notes */ }
+  });
+  await Promise.all(fetches);
+}
+
+async function loadAllSamples() {
+  if (samplesLoading || samplesLoaded) return;
+  samplesLoading = true;
+  showLoadingBar(true);
+
+  ensureCtx();
+
+  const instruments = Object.keys(SOUNDFONT_MAP);
+  let done = 0;
+  const total = instruments.length + 1; // +1 for bass
+
+  for (const inst of instruments) {
+    updateLoadingBar(inst, done / total);
+    await loadSoundfont(inst, FETCH_NOTES);
+    done++;
+  }
+
+  // Load bass samples
+  updateLoadingBar('bass', done / total);
+  if (!sampleBuffers['bass']) sampleBuffers['bass'] = {};
+  const sfBass = BASS_SOUNDFONT;
+  await Promise.all(BASS_NOTES.map(async note => {
+    const url = `${CDN}/${sfBass}-mp3/${note}.mp3`;
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) return;
+      const ab = await resp.arrayBuffer();
+      sampleBuffers['bass'][note] = await audioCtx.decodeAudioData(ab);
+    } catch(e) {}
+  }));
+
+  samplesLoaded = true;
+  samplesLoading = false;
+  showLoadingBar(false);
+  showToast('Instruments loaded ✓');
+}
+
+function showLoadingBar(show) {
+  let bar = document.getElementById('loading-bar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'loading-bar';
+    bar.style.cssText = `
+      position:fixed; bottom:110px; left:16px; right:16px; z-index:300;
+      background:var(--surface); border:1px solid var(--accent);
+      border-radius:10px; padding:10px 14px; font-size:13px; color:var(--text);
+      display:flex; align-items:center; gap:10px;
+    `;
+    bar.innerHTML = `<span style="flex:1" id="loading-label">Loading instruments…</span>
+      <div style="width:80px;height:6px;background:var(--panel);border-radius:3px;overflow:hidden">
+        <div id="loading-fill" style="height:100%;width:0%;background:var(--accent);transition:width 0.3s;border-radius:3px"></div>
+      </div>`;
+    document.body.appendChild(bar);
+  }
+  bar.style.display = show ? 'flex' : 'none';
+}
+
+function updateLoadingBar(label, pct) {
+  const el = document.getElementById('loading-label');
+  const fill = document.getElementById('loading-fill');
+  if (el) el.textContent = `Loading ${label}…`;
+  if (fill) fill.style.width = Math.round(pct * 100) + '%';
+}
+
+// Find the closest loaded sample note for a given frequency
+function findClosestSample(inst, targetFreq) {
+  const buffers = sampleBuffers[inst];
+  if (!buffers) return null;
+  const notes = Object.keys(buffers);
+  if (!notes.length) return null;
+  let best = null, bestDist = Infinity;
+  for (const note of notes) {
+    const midi = noteNameToMidi(note);
+    const freq = midiToFreq(midi);
+    const dist = Math.abs(Math.log2(targetFreq / freq));
+    if (dist < bestDist) { bestDist = dist; best = { note, midi, freq, buf: buffers[note] }; }
+  }
+  return best;
+}
+
+// Play a sample pitched to targetFreq with ADSR
+function playSample(inst, targetFreq, startTime, duration, gainVal, env) {
   if (!audioCtx) return;
+  env = env || {a:0.005, r:0.3};
+  const s = findClosestSample(inst, targetFreq);
+  if (!s) {
+    // fallback to synthesis
+    playTone(targetFreq, startTime, duration, gainVal * 0.2, 'triangle', {a:0.01,d:0.1,s:0.5,r:0.2});
+    return;
+  }
+  const src = audioCtx.createBufferSource();
+  src.buffer = s.buf;
+  // Pitch-shift by ratio
+  src.playbackRate.value = targetFreq / s.freq;
+
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0, startTime);
+  g.gain.linearRampToValueAtTime(gainVal, startTime + env.a);
+  g.gain.setValueAtTime(gainVal, startTime + duration - env.r);
+  g.gain.linearRampToValueAtTime(0, startTime + duration);
+
+  src.connect(g);
+  g.connect(audioCtx.destination);
+  src.start(startTime);
+  src.stop(startTime + duration + 0.05);
+}
+
+// ── Sampled chord voicing ──
+function playChordVoicing(freqs, startTime, duration, gainVal, inst) {
+  if (!freqs.length) return;
+
+  if (!samplesLoaded) {
+    // Fallback synthesis while samples load
+    freqs.forEach((f, i) => {
+      playTone(f, startTime + i * 0.01, duration, gainVal * 0.15, 'triangle',
+        {a:0.01, d:0.1, s:0.5, r:0.2});
+    });
+    return;
+  }
+
+  // Instrument-specific stagger and envelope
+  const configs = {
+    piano:   { stagger: 0.010, env: {a:0.004, r:0.5},  vol: 0.85 },
+    epiano:  { stagger: 0.008, env: {a:0.008, r:0.7},  vol: 0.80 },
+    organ:   { stagger: 0.000, env: {a:0.010, r:0.08}, vol: 0.65 },
+    vibes:   { stagger: 0.016, env: {a:0.003, r:1.2},  vol: 0.75 },
+    guitar:  { stagger: 0.024, env: {a:0.003, r:0.6},  vol: 0.90 },
+    pad:     { stagger: 0.000, env: {a:0.300, r:0.8},  vol: 0.70 },
+    strings: { stagger: 0.030, env: {a:0.180, r:0.5},  vol: 0.72 },
+    marimba: { stagger: 0.014, env: {a:0.003, r:0.35}, vol: 0.85 },
+  };
+  const cfg = configs[inst] || { stagger: 0.01, env: {a:0.01, r:0.3}, vol: 0.8 };
+
+  freqs.forEach((f, i) => {
+    playSample(inst, f, startTime + i * cfg.stagger, duration, gainVal * cfg.vol, cfg.env);
+  });
+}
+
+// ── Sampled bass ──
+function playSampledBass(freq, startTime, duration, gainVal) {
+  if (!samplesLoaded || !sampleBuffers['bass']) {
+    playTone(freq, startTime, duration, gainVal, 'triangle', {a:0.01, d:0.05, s:0.7, r:0.1});
+    return;
+  }
+  playSample('bass', freq, startTime, duration, gainVal, {a:0.008, r:0.12});
+}
+
+
+
+// ── Core tone builder (used for drums, click, and synthesis fallback) ──
+function playTone(freq, startTime, duration, gainVal, type, env) {
+  if (!audioCtx) return;
+  env = env || {a:0.01, d:0.1, s:0.6, r:0.15};
   const g = audioCtx.createGain();
   g.connect(audioCtx.destination);
   const osc = audioCtx.createOscillator();
-  osc.type = type;
+  osc.type = type || 'sine';
   osc.frequency.value = freq;
   osc.connect(g);
   const t = startTime;
@@ -1139,7 +1434,14 @@ function playTone(freq, startTime, duration, gainVal, type='sine', env={a:0.01,d
   osc.stop(t + duration + 0.05);
 }
 
-function playNoise(startTime, duration, gainVal, freq=200) {
+function playAdditive(freq, startTime, duration, gainVal, partials, env) {
+  partials.forEach(([mult, amp, type]) => {
+    playTone(freq * mult, startTime, duration, gainVal * amp, type || 'sine', env);
+  });
+}
+
+
+function playNoise(startTime, duration, gainVal, freq) {
   if (!audioCtx) return;
   const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * duration, audioCtx.sampleRate);
   const data = buf.getChannelData(0);
@@ -1148,7 +1450,7 @@ function playNoise(startTime, duration, gainVal, freq=200) {
   src.buffer = buf;
   const flt = audioCtx.createBiquadFilter();
   flt.type = 'bandpass';
-  flt.frequency.value = freq;
+  flt.frequency.value = freq || 200;
   flt.Q.value = 1.5;
   const g = audioCtx.createGain();
   src.connect(flt); flt.connect(g); g.connect(audioCtx.destination);
@@ -1158,103 +1460,443 @@ function playNoise(startTime, duration, gainVal, freq=200) {
   src.stop(startTime + duration + 0.01);
 }
 
+// ════════════════════════════════════════════════
+// HUMANIZATION & GROOVE STATE
+// ════════════════════════════════════════════════
+// Small amount of timing drift to avoid machine-gun feel
+function humanTime(time, maxMs) {
+  return time + (Math.random() * 2 - 1) * (maxMs / 1000);
+}
+// Velocity variation within a range
+function humanVel(base, spread) {
+  return Math.max(0.05, base + (Math.random() * 2 - 1) * spread);
+}
+
+// Swing offset: push the "and" of each beat slightly late for jazz feel
+function swingOffset(beatInBar, subdivision, spb) {
+  // Only applies to upbeats (odd 8th-note subdivisions) in swing
+  if (style === 'swing' && subdivision === 1) return spb * 0.08;
+  return 0;
+}
+
+// Global bar counter for fills
+let barCount = 0;
+let lastFillBar = -8;
+
+// Walking bass note memory: remember last bass note to step smoothly
+let lastBassNote = null;
+
+// ── Chord tone helpers for walking bass ──
+function chordTones(sym) {
+  // Returns semitone indices (0–11) of chord tones
+  if (!sym || sym === 'N.C.') return [0, 4, 7];
+  const root = sym.match(/^[A-G][b#]?/)?.[0] || 'C';
+  const quality = sym.slice(root.length);
+  const rootIdx = SEMITONES.indexOf(root);
+  let intervals;
+  if      (quality.includes('maj7') || quality.includes('M7')) intervals = [0,4,7,11];
+  else if (quality.includes('m7b5') || quality.includes('ø'))  intervals = [0,3,6,10];
+  else if (quality.includes('dim'))   intervals = [0,3,6];
+  else if (quality.includes('aug'))   intervals = [0,4,8];
+  else if (quality.match(/^m/) && quality.includes('7')) intervals = [0,3,7,10];
+  else if (quality.match(/^m/))       intervals = [0,3,7];
+  else if (quality.includes('7'))     intervals = [0,4,7,10];
+  else                                intervals = [0,4,7];
+  return intervals.map(i => (rootIdx + i) % 12);
+}
+
+function bassNoteFreq(semitone, octave) {
+  return noteFreq(SEMITONES[semitone % 12], octave || 2);
+}
+
+// Generate a 4-beat walking bass line for swing (root, 3rd/5th, approach, approach)
+function walkingBassLine(currentChordSym, nextChordSym, bpb) {
+  const tones = chordTones(currentChordSym);
+  const root  = SEMITONES.indexOf((currentChordSym.match(/^[A-G][b#]?/) || ['C'])[0]);
+  const nextRoot = nextChordSym
+    ? SEMITONES.indexOf((nextChordSym.match(/^[A-G][b#]?/) || ['C'])[0])
+    : root;
+
+  // Build a 4-note line: root → chord tone → passing → approach to next root
+  const third  = tones[1] !== undefined ? tones[1] : (root + 4) % 12;
+  const fifth  = tones[2] !== undefined ? tones[2] : (root + 7) % 12;
+  // Chromatic approach: one semitone below/above next root
+  const approach = (nextRoot - 1 + 12) % 12;
+
+  const line = [root, fifth, third, approach];
+
+  // Pick octaves so notes move smoothly (keep in octave 2)
+  return line.map(st => bassNoteFreq(st, 2));
+}
+
 function scheduleNote(beatNum, time) {
   const bpb = beatsPerBar;
   const beatInBar = beatNum % bpb;
   const secPerBeat = 60 / tempo;
-  const chordDur = secPerBeat * 0.9;
+  const chordDur = secPerBeat * 0.88;
 
-  // DRUMS
-  if (!mutes.drums) {
-    const dv = volumes.drums;
-    const pat = getDrumPattern(style, beatInBar, bpb);
-    if (pat.kick)  playTone(55,  time, 0.12, dv*0.7, 'sine',   {a:0.005,d:0.08,s:0,r:0.05});
-    if (pat.snare) playNoise(time, 0.08, dv*0.45, 220);
-    if (pat.hat)   playNoise(time, 0.04, dv*0.25, 8000);
-    if (pat.ride)  playTone(880, time, 0.08, dv*0.18,'sine',   {a:0.005,d:0.06,s:0,r:0.04});
+  // songBeat is the index into playChords — only advances after count-in
+  const songBeat = inCountIn ? -1 : (beatNum - (document.getElementById('count-in').checked ? beatsPerBar : 0));
+
+  // Track bar position (only for real bars)
+  if (!inCountIn && beatInBar === 0) barCount++;
+
+  // ── CLICK ──
+  if (!mutes.click) {
+    playClick(time, beatInBar === 0, volumes.click);
   }
 
-  // BASS
-  if (!mutes.bass && playChords.length) {
-    const idx = beatNum % totalBeats;
+  // ── DRUMS ──
+  if (!mutes.drums) {
+    const dv = volumes.drums;
+    scheduleDrums(beatInBar, bpb, time, dv, secPerBeat);
+  }
+
+  // ── BASS ──
+  if (!mutes.bass && playChords.length && songBeat >= 0) {
+    const idx = songBeat % totalBeats;
     const chord = playChords[idx];
-    if (beatInBar === 0 || (style==='bossa' && beatInBar===2) || (style==='funk' && [0,2].includes(beatInBar))) {
+    const nextIdx = (songBeat + bpb) % totalBeats;
+    const nextChord = playChords[nextIdx];
+
+    if (style === 'swing' && bpb >= 4) {
+      // Walking bass: one note per beat
+      const line = walkingBassLine(chord, nextChord, bpb);
+      const bassFreq = line[beatInBar] || line[0];
+      const jitter = humanTime(0, 6);
+      const vel = humanVel(volumes.bass * 0.55, 0.08);
+      playSampledBass(bassFreq, time + jitter, secPerBeat * 0.72, vel);
+
+    } else if (style === 'bossa') {
+      // Bossa: syncopated — beat 1, beat 2-and, beat 3
+      const bossaBeats = [0, 1, 2];
+      if (bossaBeats.includes(beatInBar)) {
+        const bf = bassFreqForChord(chord);
+        if (bf) {
+          const vel = humanVel(volumes.bass * 0.5, 0.07);
+          const push = beatInBar === 1 ? -0.03 : 0;
+          playSampledBass(bf, time + push, secPerBeat * 0.65, vel);
+          if (beatInBar === 2) {
+            const fifth = bf * 1.5;
+            playSampledBass(fifth, time + secPerBeat * 0.5, secPerBeat * 0.4, vel * 0.7);
+          }
+        }
+      }
+
+    } else if (style === 'funk') {
+      // Funk: 16th-note feel on beats 1 and 3, ghost on e-of-2
+      const funkBeats = { 0: 1.0, 2: 0.85, 3: 0.6 };
+      if (funkBeats[beatInBar] !== undefined) {
+        const bf = bassFreqForChord(chord);
+        if (bf) {
+          const vel = humanVel(volumes.bass * 0.55 * funkBeats[beatInBar], 0.07);
+          const jitter = humanTime(0, 5);
+          playSampledBass(bf, time + jitter, secPerBeat * 0.55, vel);
+          if (beatInBar === 0 && Math.random() > 0.4) {
+            playSampledBass(bf * 2, time + secPerBeat * 0.45, secPerBeat * 0.3, vel * 0.4);
+          }
+        }
+      }
+
+    } else if (style === 'waltz') {
       const bf = bassFreqForChord(chord);
       if (bf) {
-        playTone(bf, time, secPerBeat*0.7, volumes.bass*0.5, 'triangle', {a:0.01,d:0.05,s:0.7,r:0.1});
-        // walking notes on beat 3 swing
-        if (style==='swing' && beatInBar===2 && bpb>=4) {
-          playTone(bf*1.122, time+secPerBeat, secPerBeat*0.4, volumes.bass*0.3,'triangle',{a:0.01,d:0.05,s:0.5,r:0.1});
+        const vel = humanVel(volumes.bass * (beatInBar === 0 ? 0.55 : 0.38), 0.06);
+        const bassN = beatInBar === 0 ? bf : bf * 1.5;
+        playSampledBass(bassN, time, secPerBeat * 0.6, vel);
+      }
+
+    } else {
+      // Rock / default: root on 1 and 3
+      if ([0, 2].includes(beatInBar)) {
+        const bf = bassFreqForChord(chord);
+        if (bf) {
+          const vel = humanVel(volumes.bass * 0.55, 0.07);
+          playSampledBass(bf, time, secPerBeat * 0.7, vel);
         }
       }
     }
   }
 
-  // CHORDS — strum on beat 1 (and 3 for some styles)
-  if (!mutes.chords && playChords.length) {
+  // ── CHORDS ──
+  if (!mutes.chords && playChords.length && songBeat >= 0) {
     const doChord = (style==='waltz') ? (beatInBar===0)
       : (style==='bossa') ? ([0,2].includes(beatInBar))
       : (style==='funk')  ? ([0,2].includes(beatInBar))
       : (beatInBar===0 || (beatInBar===2 && bpb>=4));
     if (doChord) {
-      const idx = beatNum % totalBeats;
+      const idx = songBeat % totalBeats;
       const freqs = parseChord(playChords[idx]);
-      freqs.forEach((f,i) => {
-        setTimeout(()=>{
-          playTone(f, time+(i*0.012), chordDur, volumes.chords*0.18, 'triangle', {a:0.02,d:0.1,s:0.5,r:0.2});
-        }, 0);
-      });
+      // Slight humanization on chord strum timing
+      const strum = humanTime(time, 8);
+      playChordVoicing(freqs, strum, chordDur, volumes.chords, chordInstrument);
     }
   }
 
-  // update UI on next frame
-  requestAnimationFrame(()=> lightBeat(beatInBar));
+  const msUntilBeat = Math.max(0, (time - audioCtx.currentTime) * 1000);
+  setTimeout(() => lightBeat(beatInBar, songBeat), msUntilBeat);
+}
+
+// ── Drum scheduler with ghost notes, fills, and humanization ──
+function scheduleDrums(beatInBar, bpb, time, dv, spb) {
+  const pat = getDrumPattern(style, beatInBar, bpb);
+
+  // Detect fill bar: every 4 bars, on the last bar
+  const doFill = (barCount > 0) && (barCount % 4 === 0) && (barCount !== lastFillBar)
+    && (beatInBar === bpb - 1);
+  if (doFill) lastFillBar = barCount;
+
+  // Main kick
+  if (pat.kick) {
+    const t = humanTime(time, 4);
+    const v = humanVel(dv * 0.9, 0.06);
+    playKick(t, v);
+  }
+
+  // Main snare
+  if (pat.snare) {
+    const t = humanTime(time, 5);
+    const v = humanVel(dv * 0.72, 0.07);
+    playSnare(t, v);
+  }
+
+  // Ghost snare — quiet hit before the main snare (jazz/funk feel)
+  if (pat.ghost) {
+    const t = humanTime(time - spb * 0.12, 6);
+    playSnare(t, humanVel(dv * 0.18, 0.05));
+  }
+
+  // Hi-hat (closed)
+  if (pat.hat) {
+    // Swing: ride cymbal plays triplet feel; add subtle hat accent on 2 and 4
+    const t = humanTime(time, 3);
+    const v = humanVel(dv * (pat.hatAccent ? 0.48 : 0.32), 0.06);
+    playHat(t, v, false);
+  }
+
+  // Open hat
+  if (pat.ohat) {
+    playHat(humanTime(time, 4), humanVel(dv * 0.55, 0.06), true);
+  }
+
+  // Ride cymbal (swing / bossa)
+  if (pat.ride) {
+    const t = humanTime(time, 4);
+    const v = humanVel(dv * (pat.rideBell ? 0.55 : 0.38), 0.07);
+    playRide(t, v);
+  }
+
+  // Fill: rapid snare roll on last beat of every 4th bar
+  if (doFill) {
+    const fillNotes = 4;
+    for (let i = 1; i <= fillNotes; i++) {
+      const ft = time + (spb / fillNotes) * i;
+      const fv = humanVel(dv * (0.5 + i * 0.1), 0.05);
+      playSnare(humanTime(ft, 5), fv);
+    }
+    // Crash-like open hat accent at end of fill
+    playHat(time + spb * 0.9, humanVel(dv * 0.7, 0.05), true);
+  }
 }
 
 function getDrumPattern(style, beat, bpb) {
-  const p = { kick:false, snare:false, hat:false, ride:false };
+  // Returns flags per beat; ghost notes added probabilistically
+  const p = { kick:false, snare:false, hat:false, ohat:false, ride:false,
+              ghost:false, hatAccent:false, rideBell:false };
+  const rnd = Math.random();
+
+  if (style === 'swing') {
+    // Ride plays on every beat (swing triplet feel implied)
+    p.ride      = true;
+    p.rideBell  = (beat === 0);            // bell accent on 1
+    p.kick      = (beat === 0) || (beat === 4 && rnd > 0.3);
+    p.snare     = (beat === 2) || (beat === 6);
+    p.ghost     = (beat === 1 || beat === 5) && rnd > 0.5;  // ghosted snare upbeats
+    p.hat       = (beat === 2 || beat === 6);                // hat on 2 and 4
+    p.hatAccent = true;
+
+  } else if (style === 'bossa') {
+    // Bossa: soft rimshot pattern, no heavy snare
+    p.kick  = [0, 3].includes(beat % 4);
+    p.snare = beat % 4 === 2;              // rimshot feel (snare at low vel)
+    p.hat   = true;                        // steady 8th notes on hat
+    p.hatAccent = (beat % 2 === 0);
+    p.ride  = beat % 4 === 0;
+
+  } else if (style === 'funk') {
+    // Funk: 16th-note feel mapped to beat subdivisions
+    p.kick  = [0, 3, 6].includes(beat % 8);
+    p.snare = [2, 6].includes(beat % 8);
+    p.ghost = [1, 5].includes(beat % 8) && rnd > 0.45;
+    p.hat   = beat % 2 === 0;
+    p.ohat  = [3, 7].includes(beat % 8);
+    p.hatAccent = (beat % 4 === 0);
+
+  } else if (style === 'rock') {
+    p.kick  = [0, 2].includes(beat % 4);
+    // Extra kick on "and" of 2 occasionally
+    if (beat % 4 === 1 && rnd > 0.7) p.kick = true;
+    p.snare = [1, 3].includes(beat % 4);
+    p.hat   = true;
+    p.hatAccent = (beat % 2 === 0);
+
+  } else if (style === 'waltz') {
+    p.kick  = beat % 3 === 0;
+    p.snare = beat % 3 === 1;
+    p.hat   = beat % 3 === 2;
+    p.ride  = beat % 3 === 0;
+  }
+  return p;
+}
+
+// ── Drum synthesis ──
+function playKick(time, vol) {
+  if (!audioCtx) return;
+  // Pitched sine sweep from ~150Hz down to 40Hz — classic kick body
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(150, time);
+  osc.frequency.exponentialRampToValueAtTime(40, time + 0.08);
+  g.gain.setValueAtTime(vol, time);
+  g.gain.exponentialRampToValueAtTime(0.0001, time + 0.35);
+  osc.connect(g); g.connect(audioCtx.destination);
+  osc.start(time); osc.stop(time + 0.36);
+
+  // Transient click layer on top
+  const click = audioCtx.createOscillator();
+  const cg = audioCtx.createGain();
+  click.type = 'sine';
+  click.frequency.setValueAtTime(800, time);
+  click.frequency.exponentialRampToValueAtTime(60, time + 0.012);
+  cg.gain.setValueAtTime(vol * 0.4, time);
+  cg.gain.exponentialRampToValueAtTime(0.0001, time + 0.015);
+  click.connect(cg); cg.connect(audioCtx.destination);
+  click.start(time); click.stop(time + 0.02);
+}
+
+function playSnare(time, vol) {
+  if (!audioCtx) return;
+  const sr = audioCtx.sampleRate;
+  // Noise component (snare rattle)
+  const bufLen = Math.ceil(sr * 0.18);
+  const buf = audioCtx.createBuffer(1, bufLen, sr);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < bufLen; i++) d[i] = Math.random() * 2 - 1;
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  const hp = audioCtx.createBiquadFilter();
+  hp.type = 'highpass'; hp.frequency.value = 1800;
+  const ng = audioCtx.createGain();
+  ng.gain.setValueAtTime(vol * 0.55, time);
+  ng.gain.exponentialRampToValueAtTime(0.0001, time + 0.16);
+  src.connect(hp); hp.connect(ng); ng.connect(audioCtx.destination);
+  src.start(time); src.stop(time + 0.18);
+
+  // Drum body (tonal thud around 180Hz)
+  const osc = audioCtx.createOscillator();
+  const og = audioCtx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(200, time);
+  osc.frequency.exponentialRampToValueAtTime(100, time + 0.06);
+  og.gain.setValueAtTime(vol * 0.45, time);
+  og.gain.exponentialRampToValueAtTime(0.0001, time + 0.08);
+  osc.connect(og); og.connect(audioCtx.destination);
+  osc.start(time); osc.stop(time + 0.09);
+}
+
+function playHat(time, vol, open) {
+  if (!audioCtx) return;
+  const sr = audioCtx.sampleRate;
+  const dur = open ? 0.28 : 0.055;
+  const bufLen = Math.ceil(sr * dur);
+  const buf = audioCtx.createBuffer(1, bufLen, sr);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < bufLen; i++) d[i] = Math.random() * 2 - 1;
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  // Pair of bandpass filters to mimic cymbal metallic shimmer
+  const bp1 = audioCtx.createBiquadFilter();
+  bp1.type = 'bandpass'; bp1.frequency.value = 7000; bp1.Q.value = 0.8;
+  const bp2 = audioCtx.createBiquadFilter();
+  bp2.type = 'highpass'; bp2.frequency.value = 5000;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(vol, time);
+  g.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+  src.connect(bp1); bp1.connect(bp2); bp2.connect(g); g.connect(audioCtx.destination);
+  src.start(time); src.stop(time + dur + 0.01);
+}
+
+function playRide(time, vol) {
+  if (!audioCtx) return;
+  const sr = audioCtx.sampleRate;
+  const dur = 0.45;
+  const bufLen = Math.ceil(sr * dur);
+  const buf = audioCtx.createBuffer(1, bufLen, sr);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < bufLen; i++) d[i] = Math.random() * 2 - 1;
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  const bp = audioCtx.createBiquadFilter();
+  bp.type = 'bandpass'; bp.frequency.value = 4500; bp.Q.value = 1.2;
+  const hs = audioCtx.createBiquadFilter();
+  hs.type = 'highshelf'; hs.frequency.value = 8000; hs.gain.value = -4;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(vol * 0.7, time);
+  g.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+  src.connect(bp); bp.connect(hs); hs.connect(g); g.connect(audioCtx.destination);
+  src.start(time); src.stop(time + dur + 0.01);
+}
+
+function getDrumPattern(style, beat, bpb) {
+  const p = { kick:false, snare:false, hat:false, ohat:false, ride:false };
   if (style==='swing') {
-    p.kick  = [0,4].includes(beat % 8) || beat===0;
-    p.snare = [2,6].includes(beat % 8);
+    p.kick  = beat===0 || beat===4;
+    p.snare = beat===2 || beat===6;
     p.ride  = true;
   } else if (style==='bossa') {
     p.kick  = [0,3].includes(beat % 4);
     p.hat   = [1,3].includes(beat % 4);
-    p.ride  = [0,2].includes(beat % 4);
-  } else if (style==='funk') {
-    p.kick  = [0,3].includes(beat % 4);
     p.snare = beat % 4 === 2;
-    p.hat   = true;
+  } else if (style==='funk') {
+    p.kick  = [0,3,6].includes(beat % 8);
+    p.snare = [2,6].includes(beat % 8);
+    p.hat   = beat % 2 === 0;
+    p.ohat  = [3,7].includes(beat % 8);
   } else if (style==='rock') {
     p.kick  = [0,2].includes(beat % 4);
     p.snare = [1,3].includes(beat % 4);
     p.hat   = true;
   } else if (style==='waltz') {
     p.kick  = beat % 3 === 0;
-    p.hat   = beat % 3 !== 0;
     p.snare = beat % 3 === 1;
+    p.hat   = beat % 3 === 2;
   }
   return p;
 }
 
 function scheduler() {
   while (nextNoteTime < audioCtx.currentTime + scheduleAheadTime) {
-    scheduleNote(currentBeat, nextNoteTime);
-    const secPerBeat = 60 / tempo;
-    nextNoteTime += secPerBeat;
-    currentBeat++;
-
+    // Clear count-in flag BEFORE scheduling so the first real beat sees inCountIn=false
     if (inCountIn) {
       countInBeats--;
       if (countInBeats <= 0) inCountIn = false;
     }
 
-    if (!inCountIn && totalBeats > 0 && (currentBeat - (document.getElementById('count-in').checked ? beatsPerBar : 0)) >= totalBeats) {
-      if (document.getElementById('loop-song').checked) {
-        currentBeat = document.getElementById('count-in').checked ? beatsPerBar : 0;
-      } else {
-        setTimeout(stopPlayback, (nextNoteTime - audioCtx.currentTime)*1000 + 100);
-        return;
+    scheduleNote(currentBeat, nextNoteTime);
+    const secPerBeat = 60 / tempo;
+    nextNoteTime += secPerBeat;
+    currentBeat++;
+
+    if (!inCountIn && totalBeats > 0) {
+      const songBeatNow = currentBeat - (document.getElementById('count-in').checked ? beatsPerBar : 0);
+      if (songBeatNow >= totalBeats) {
+        if (document.getElementById('loop-song').checked) {
+          currentBeat = document.getElementById('count-in').checked ? beatsPerBar : 0;
+        } else {
+          setTimeout(stopPlayback, (nextNoteTime - audioCtx.currentTime)*1000 + 100);
+          return;
+        }
       }
     }
   }
@@ -1264,6 +1906,8 @@ function scheduler() {
 function startPlayback() {
   if (!currentSongId) { showToast('Select a song first'); return; }
   ensureCtx();
+  // Kick off sample loading on first play (non-blocking)
+  if (!samplesLoaded && !samplesLoading) loadAllSamples();
   const song = songs.find(s=>s.id===currentSongId);
   if (!song) return;
   buildPlayChords(song);
@@ -1282,8 +1926,46 @@ function startPlayback() {
 
   nextNoteTime = audioCtx.currentTime + 0.05;
   isPlaying = true;
+  barCount = 0;
+  lastFillBar = -8;
   document.getElementById('play-btn').textContent = '⏹';
   document.getElementById('play-btn').classList.add('playing');
+  scheduler();
+}
+
+function seekToBar(barIndex) {
+  if (!currentSongId) return;
+  ensureCtx();
+
+  const wasPlaying = isPlaying;
+
+  // Stop current playback cleanly
+  clearTimeout(schedulerTimer);
+  isPlaying = false;
+  inCountIn = false;
+  document.querySelectorAll('.chord-cell.active-beat').forEach(c => c.classList.remove('active-beat'));
+  document.querySelectorAll('.beat-dot').forEach(d => { d.classList.remove('lit','lit-1'); });
+
+  // Flash the bar to confirm the seek
+  const cell = document.getElementById(`cell-${barIndex}-0`);
+  if (cell) {
+    cell.classList.add('active-beat');
+    setTimeout(() => cell.classList.remove('active-beat'), 180);
+  }
+
+  // Set currentBeat to land on the target bar
+  // songBeat = currentBeat - (countIn ? bpb : 0), so currentBeat = barIndex*bpb + offset
+  const countIn = document.getElementById('count-in').checked;
+  const offset = countIn ? beatsPerBar : 0;
+  currentBeat = barIndex * beatsPerBar + offset;
+  barCount = barIndex;
+  lastFillBar = -8;
+
+  nextNoteTime = audioCtx.currentTime + 0.05;
+  isPlaying = true;
+  document.getElementById('play-btn').textContent = '⏹';
+  document.getElementById('play-btn').classList.add('playing');
+  showToast(`▶ Bar ${barIndex + 1}`);
   scheduler();
 }
 
@@ -1325,8 +2007,9 @@ function updateStyle() {
   }
 }
 function updateMix() {
-  volumes.drums  = document.getElementById('vol-drums').value / 100;
-  volumes.bass   = document.getElementById('vol-bass').value  / 100;
+  volumes.click  = document.getElementById('vol-click').value  / 100;
+  volumes.drums  = document.getElementById('vol-drums').value  / 100;
+  volumes.bass   = document.getElementById('vol-bass').value   / 100;
   volumes.chords = document.getElementById('vol-chords').value / 100;
 }
 function toggleMute(inst) {
@@ -1334,6 +2017,11 @@ function toggleMute(inst) {
   const btn = document.getElementById('mute-'+inst);
   btn.classList.toggle('muted', mutes[inst]);
   btn.textContent = mutes[inst] ? 'Unmute' : 'Mute';
+}
+function selectInstrument(el, inst) {
+  chordInstrument = inst;
+  document.querySelectorAll('.inst-chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
 }
 
 // ════════════════════════════════════════════════
